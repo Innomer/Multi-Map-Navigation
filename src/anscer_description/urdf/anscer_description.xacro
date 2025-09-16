@@ -1,0 +1,225 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="anscer_description">
+
+  <xacro:include filename="$(find anscer_description)/urdf/anscer_description_macros.xacro" />
+  <xacro:include
+    filename="$(find anscer_description)/urdf/anscer_description_materials.xacro" />
+  <xacro:include
+    filename="$(find anscer_description)/urdf/anscer_description_params.xacro" />
+
+
+  <!-- Base foot print -->
+  <link
+    name="base_footprint">
+    <!-- No inertial matrix for base footprint in Gazebo simulation -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.001 0.001 0.001" />
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- Main body -->
+  <link
+    name="base_link">
+    <xacro:box_inertia m="${base_link_mass}" w="${base_len}" h="${base_height}" d="${base_width}"
+      xyz="${base_link_offset} 0.0 ${base_wheel_gap_z}" rpy="0.0 0.0 0.0" />
+    <visual>
+      <origin xyz="0 0.0 0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename="$(find anscer_description)/meshes/amr_chassis.dae" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <xacro:if value="${props['base_collision']}">
+      <collision>
+        <origin xyz="${base_link_offset} 0.0 ${base_wheel_gap_z}" rpy="0.0 0.0 0.0" />
+        <geometry>
+          <mesh filename="$(find anscer_description)/meshes/amr_chassis.dae" scale="1 1 1" />
+        </geometry>
+      </collision>
+    </xacro:if>
+  </link>
+
+  <joint
+    name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint" />
+    <child link="base_link" />
+    <origin xyz="0.0 0.0 ${wheel_radius}" rpy="0.0 0.0 0.0" />
+  </joint>
+
+
+  <!-- Differential drive wheels -->
+  <xacro:macro name="wheel"
+    params="prefix reflect">
+    <link name="${prefix}_wheel">
+      <xacro:cylinder_inertia m="${wheel_mass}" r="${wheel_radius}" h="${wheel_thickness}"
+        xyz="0.0 0.0 0.0" rpy="${pi/2} 0.0 0.0" />
+      <visual>
+        <material name="black" />
+        <origin xyz="0.0 0.0 0.0" rpy="${pi/2} 0.0 0.0" />
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}" />
+        </geometry>
+      </visual>
+      <surface>
+        <friction>
+          <ode>
+            <mu>100</mu>
+            <mu2>100</mu2>
+          </ode>
+        </friction>
+      </surface>
+      <collision>
+        <origin xyz="0.0 0.0 0.0" rpy="${pi/2} 0.0 0.0" />
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}" />
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <axis xyz="0.0 1.0 0.0" rpy="0.0 0.0 0.0" />
+      <parent link="base_link" />
+      <child link="${prefix}_wheel" />
+      <origin xyz="0.0 ${(wheel_seperation/2)*reflect} 0" rpy="0.0 0.0 0.0" />
+      <dynamics damping="0.0" friction="0.0" />
+    </joint>
+  </xacro:macro>
+
+  <xacro:wheel
+    prefix="left" reflect="1" />
+  <xacro:wheel prefix="right" reflect="-1" />
+
+  <!-- Caster wheels -->
+  <xacro:macro
+    name="caster_wheel" params="prefix reflect offset_x">
+    <link name="${prefix}_caster_wheel">
+      <xacro:sphere_inertia m="${caster_wheel_mass}" r="${caster_wheel_radius}" xyz="0.0 0.0 0.0"
+        rpy="${pi/2} 0.0 0.0" />
+      <visual>
+        <material name="black" />
+        <origin xyz="0.0 0.0 0.0" rpy="${pi/2} 0.0 0.0" />
+        <geometry>
+          <sphere radius="${caster_wheel_radius}" />
+        </geometry>
+      </visual>
+      <surface>
+        <friction>
+          <ode>
+            <mu>
+              0</mu>
+            <mu2>0</mu2>
+          </ode>
+        </friction>
+      </surface>
+      <collision>
+        <origin xyz="0.0 0.0 0.0" rpy="${pi/2} 0.0 0.0" />
+        <geometry>
+          <sphere radius="${caster_wheel_radius}" />
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${prefix}_caster_wheel_joint" type="fixed">
+      <parent link="base_link" />
+      <child link="${prefix}_caster_wheel" />
+      <origin
+        xyz="${offset_x} ${(caster_wheel_seperation/2)*reflect} -${(wheel_radius-caster_wheel_radius)}"
+        rpy="0.0 0.0 0.0" />
+    </joint>
+
+  </xacro:macro> ] <xacro:if
+    value="${caster_wheel_offset_front != 0}">
+    <xacro:caster_wheel prefix="front_left" reflect="1" offset_x="${caster_wheel_offset_front}" />
+    <xacro:caster_wheel prefix="front_right" reflect="-1" offset_x="${caster_wheel_offset_front}" />
+  </xacro:if>
+
+  <xacro:if
+    value="${caster_wheel_offset_rear != 0}">
+    <xacro:caster_wheel prefix="back_left" reflect="1" offset_x="${caster_wheel_offset_rear}" />
+    <xacro:caster_wheel prefix="back_right" reflect="-1" offset_x="${caster_wheel_offset_rear}" />
+  </xacro:if>
+
+  <!-- LIDAR links and joints -->
+  <xacro:macro
+    name="middle_lidar" params="prefix lidar_xyz lidar_rpy">
+    <link name="${prefix}_link">
+      <xacro:box_inertia m="${lidar_box_mass}" w="${lidar_box_size}" h="${lidar_box_size}"
+        d="${lidar_box_size}" xyz="0.0 0.0  0.0" rpy="0.0 0.0 0.0" />
+      <visual>
+        <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+        <geometry>
+          <box size="${lidar_box_size} ${lidar_box_size} ${lidar_box_size}" />
+        </geometry>
+        <material name="sky_blue" />
+      </visual>
+      <!--collision>
+                  <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+                  <geometry>
+                      <box size="${lidar_box_size} ${lidar_box_size} ${lidar_box_size}" />
+                  </geometry>
+      </collision-->
+    </link>
+    <joint name="${prefix}_joint" type="fixed">
+      <axis xyz="0.0 1.0 0.0" rpy="0.0 0.0 0.0" />
+      <origin xyz="${lidar_xyz}" rpy="${lidar_rpy}" />
+      <parent link="base_link" />
+      <child link="${prefix}_link" />
+    </joint>
+  </xacro:macro>
+  <xacro:middle_lidar prefix="lidar"
+    lidar_xyz="${props['lidar_xyz']}" lidar_rpy="${props['lidar_rpy']}" />
+
+  <!-- IMU link and joint -->
+  <link name="imu_link">
+    <xacro:box_inertia m="${imu_box_mass}" w="${imu_box_len_wdt}" h="${imu_box_len_wdt}"
+      d="${imu_box_thickness}" xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+    <visual>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="${imu_box_len_wdt} ${imu_box_len_wdt} ${imu_box_thickness}" />
+      </geometry>
+      <material name="magenta" />
+    </visual>
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="${imu_box_len_wdt} ${imu_box_len_wdt} ${imu_box_thickness}" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="imu_joint" type="fixed">
+    <origin
+      xyz="${imu_box_offset_x} ${imu_box_offset_y} ${-((base_height/2)+(imu_box_thickness/2))+base_wheel_gap_z}"
+      rpy="0.0 0.0 0.0" />
+    <parent link="base_link" />
+    <child link="imu_link" />
+  </joint>
+  
+  <ros2_control name="GazeboSystem" type="system">
+    <hardware>
+      <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+    </hardware>
+
+    <joint name="left_wheel_joint">
+      <command_interface name="velocity" />
+      <state_interface name="position" />
+      <state_interface name="velocity" />
+    </joint>
+
+    <joint name="right_wheel_joint">
+      <command_interface name="velocity" />
+      <state_interface name="position" />
+      <state_interface name="velocity" />
+    </joint>
+  </ros2_control>
+
+
+  <!-- Gazebo includes-->
+  <xacro:include
+    filename="$(find anscer_description)/urdf/anscer_description_gazebo.xacro" />
+
+</robot>

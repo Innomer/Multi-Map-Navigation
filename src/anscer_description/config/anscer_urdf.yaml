@@ -1,0 +1,51 @@
+lidar_parameters:
+  no_of_lidar: 1
+  lidar_type: "2D"
+  min_range: 0.1
+  max_range: 10
+  frequency: 15
+  visualization: false
+  horizontal:
+    min_angle: -180
+    max_angle: 180
+    samples: 720
+    resolution: 1
+  vertical:
+    min_angle: -15
+    max_angle: 15
+    samples: 30
+    resolution: 1
+
+# Robot parameters
+base_link_mass: 50.0
+base_width: 0.5
+base_len: 0.9
+base_height: 0.130
+base_link_offset: 0.0
+base_wheel_gap_z: 0.06
+base_collision: false
+
+wheel_mass: 3.5
+wheel_radius: 0.08
+wheel_thickness: 0.04
+wheel_seperation: 0.44
+
+caster_wheel_mass: 0.25
+caster_wheel_radius: 0.04
+caster_wheel_seperation: 0.42
+caster_wheel_offset_front: 0.4
+caster_wheel_offset_rear: -0.4 #Must be -ve if behind base_link
+
+
+lidar_box_mass: 0.050
+lidar_box_size: 0.05
+
+#Single_lidar configuration
+lidar_xyz:  0.0 0.0 0.1   # x y z
+lidar_rpy:  0 0 0         # roll pitch yaw
+
+imu_box_mass: 0.0165
+imu_box_len_wdt: 0.037
+imu_box_thickness: 0.012
+imu_box_offset_x: 0.075
+imu_box_offset_y: 0.0
