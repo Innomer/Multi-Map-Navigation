@@ -13,6 +13,8 @@
 #include <unordered_set>
 #include <vector>
 #include <thread>
+#include <yaml-cpp/yaml.h>
+#include <filesystem>
 
 using MultiMapNavigate = anscer_navigation::action::MultiMapNavigate;
 using NavigateToPose = nav2_msgs::action::NavigateToPose;
@@ -21,6 +23,11 @@ struct Wormhole
 {
   std::string from;
   std::string to;
+  double x, y, yaw;
+};
+
+struct MapOrigin
+{
   double x, y, yaw;
 };
 
@@ -45,6 +52,7 @@ public:
     }
 
     current_map_ = "Hallway"; // default starting map
+    origins_[current_map_] = load_origin(current_map_);
   }
 
   ~MultiMapNavServer() { sqlite3_close(db_); }
@@ -54,6 +62,46 @@ private:
   rclcpp_action::Client<NavigateToPose>::SharedPtr nav_client_;
   sqlite3 *db_;
   std::string current_map_;
+
+  std::unordered_map<std::string, MapOrigin> origins_;
+
+  MapOrigin load_origin(const std::string &map_name)
+  {
+    std::string yaml_path = "maps/" + map_name + "_map.yaml";
+    if (!std::filesystem::exists(yaml_path))
+    {
+      RCLCPP_ERROR(this->get_logger(), "YAML file not found: %s", yaml_path.c_str());
+      return {0.0, 0.0, 0.0};
+    }
+
+    YAML::Node config = YAML::LoadFile(yaml_path);
+    auto origin = config["origin"].as<std::vector<double>>();
+    return {origin[0], origin[1], origin[2]};
+  }
+
+  geometry_msgs::msg::PoseStamped local_to_global(const std::string &map_name, double x, double y, double yaw)
+  {
+    if (origins_.find(map_name) == origins_.end())
+      origins_[map_name] = load_origin(map_name);
+
+    auto o = origins_[map_name];
+
+    // Transform local → global
+    double gx = o.x + cos(o.yaw) * x - sin(o.yaw) * y;
+    double gy = o.y + sin(o.yaw) * x + cos(o.yaw) * y;
+    double gyaw = o.yaw + yaw;
+
+    tf2::Quaternion q;
+    q.setRPY(0, 0, gyaw);
+
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header.frame_id = "map";
+    pose.header.stamp = now();
+    pose.pose.position.x = gx;
+    pose.pose.position.y = gy;
+    pose.pose.orientation = tf2::toMsg(q);
+    return pose;
+  }
 
   rclcpp_action::GoalResponse handle_goal(
       const rclcpp_action::GoalUUID &,
@@ -201,14 +249,19 @@ private:
   {
     if (!nav_client_->wait_for_action_server(std::chrono::seconds(5)))
       return false;
+
+    std::string use_map = map_name.empty() ? current_map_ : map_name;
+    auto goal_pose = local_to_global(use_map, x, y, yaw);
+
     NavigateToPose::Goal goal_msg;
-    goal_msg.pose.header.frame_id = "map";
-    goal_msg.pose.header.stamp = now();
-    goal_msg.pose.pose.position.x = x;
-    goal_msg.pose.pose.position.y = y;
-    tf2::Quaternion q;
-    q.setRPY(0, 0, yaw);
-    goal_msg.pose.pose.orientation = tf2::toMsg(q);
+    goal_msg.pose = goal_pose;
+    // goal_msg.pose.header.frame_id = "map";
+    // goal_msg.pose.header.stamp = now();
+    // goal_msg.pose.pose.position.x = x;
+    // goal_msg.pose.pose.position.y = y;
+    // tf2::Quaternion q;
+    // q.setRPY(0, 0, yaw);
+    // goal_msg.pose.pose.orientation = tf2::toMsg(q);
 
     auto future = nav_client_->async_send_goal(goal_msg);
     if (future.wait_for(std::chrono::seconds(2)) != std::future_status::ready)
@@ -233,7 +286,12 @@ private:
     if (future.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
       return false;
     auto result = future.get();
-    return result->result == nav2_msgs::srv::LoadMap::Response::RESULT_SUCCESS;
+    if (result->result == nav2_msgs::srv::LoadMap::Response::RESULT_SUCCESS)
+    {
+      origins_[map_name] = load_origin(map_name); // reload origin
+      return true;
+    }
+    return false;
   }
 };
 
