@@ -15,6 +15,16 @@ find_package(nav2_amcl REQUIRED)
 find_package(nav2_bt_navigator REQUIRED)
 find_package(nav2_map_server REQUIRED)
 find_package(nav2_waypoint_follower REQUIRED)
+find_package(nav2_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(action_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/MultiMapNavigate.action"
+)
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -28,6 +38,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
@@ -37,7 +48,31 @@ install(DIRECTORY config
 install(DIRECTORY src
   DESTINATION share/${PROJECT_NAME}
 )
-include_directories(include)
+install(DIRECTORY action
+  DESTINATION share/${PROJECT_NAME}
+)
 
+include_directories(include)
+add_executable(multi_map_node src/multi_map_node.cpp)
+
+ament_target_dependencies(multi_map_node
+  rclcpp
+  rclcpp_action
+  nav2_msgs
+  tf2
+  tf2_geometry_msgs
+)
+find_library(SQLITE3_LIB sqlite3)
+target_link_libraries(multi_map_node ${SQLITE3_LIB})
+
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(multi_map_node ${cpp_typesupport_target})
+# add_dependencies(multi_map_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${cpp_typesupport_target})
+# rosidl_target_interfaces(multi_map_node
+#   ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+install(TARGETS multi_map_node
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 ament_package()
