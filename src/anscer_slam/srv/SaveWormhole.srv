@@ -1,0 +1,8 @@
+# Request
+string map_from   # current map
+string map_to     # target map
+string map_name   # filename to save the map
+---
+# Response
+bool success
+string message

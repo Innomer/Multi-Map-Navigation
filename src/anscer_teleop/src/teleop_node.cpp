@@ -119,7 +119,7 @@ private:
                 rclcpp::shutdown();
                 return;
             default:
-                return; // do nothing if no key
+                return;
         }
 
         pub_->publish(twist);

@@ -38,7 +38,7 @@ def generate_launch_description():
     rsp = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
-        parameters=[robot_description],
+        parameters=[robot_description, {'use_sim_time': True}],
         output='screen'
     )
 
@@ -79,6 +79,7 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         name='rviz2',
+        parameters=[{'use_sim_time': True}],
         # arguments=['-d', rviz_config_file],
         output='screen'
     )
